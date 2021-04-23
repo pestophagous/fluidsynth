@@ -30,6 +30,10 @@
 #include "fluid_rtkit.h"
 #endif
 
+#ifndef ANDROID
+#include <glib/gstdio.h>
+#endif
+
 #if HAVE_PTHREAD_H && !defined(WIN32)
 // Do not include pthread on windows. It includes winsock.h, which collides with ws2tcpip.h from fluid_sys.h
 // It isn't need on Windows anyway.
@@ -314,7 +318,7 @@ char *fluid_strtok(char **str, char *delim)
  */
 void fluid_msleep(unsigned int msecs)
 {
-    g_usleep(msecs * 1000);
+    usleep(msecs * 1000);
 }
 
 /**
@@ -347,40 +351,11 @@ unsigned int fluid_curtime(void)
 double
 fluid_utime(void)
 {
-    double utime;
+    struct timespec timeval;
 
-#if GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 28
-    /* use high precision monotonic clock if available (g_monotonic_time().
-     * For Winfdows, if this clock is actually implemented as low prec. clock
-     * (i.e. in case glib is too old), high precision performance counter are
-     * used instead.
-     * see: https://bugzilla.gnome.org/show_bug.cgi?id=783340
-     */
-#if defined(WITH_PROFILING) &&  defined(WIN32) &&\
-	/* glib < 2.53.3 */\
-	(GLIB_MINOR_VERSION <= 53 && (GLIB_MINOR_VERSION < 53 || GLIB_MICRO_VERSION < 3))
-    /* use high precision performance counter. */
-    static LARGE_INTEGER freq_cache = {0, 0};	/* Performance Frequency */
-    LARGE_INTEGER perf_cpt;
+    clock_gettime(CLOCK_REALTIME, &timeval);
 
-    if(! freq_cache.QuadPart)
-    {
-        QueryPerformanceFrequency(&freq_cache);  /* Frequency value */
-    }
-
-    QueryPerformanceCounter(&perf_cpt); /* Counter value */
-    utime = perf_cpt.QuadPart * 1000000.0 / freq_cache.QuadPart; /* time in micros */
-#else
-    utime = g_get_monotonic_time();
-#endif
-#else
-    /* fallback to less precise clock */
-    GTimeVal timeval;
-    g_get_current_time(&timeval);
-    utime = (timeval.tv_sec * 1000000.0 + timeval.tv_usec);
-#endif
-
-    return utime;
+    return (timeval.tv_sec * 1000000.0 + timeval.tv_nsec / 1000.0);
 }
 
 
@@ -929,25 +904,8 @@ void fluid_profile_start_stop(unsigned int end_ticks, short clear_data)
  *
  */
 
-#if OLD_GLIB_THREAD_API
-
-/* Rather than inline this one, we just declare it as a function, to prevent
- * GCC warning about inline failure. */
-fluid_cond_t *
-new_fluid_cond(void)
-{
-    if(!g_thread_supported())
-    {
-        g_thread_init(NULL);
-    }
-
-    return g_cond_new();
-}
-
-#endif
-
-static gpointer
-fluid_thread_high_prio(gpointer data)
+static fluid_thread_return_t
+fluid_thread_high_prio (void *data)
 {
     fluid_thread_info_t *info = data;
 
@@ -956,9 +914,8 @@ fluid_thread_high_prio(gpointer data)
     info->func(info->data);
     FLUID_FREE(info);
 
-    return NULL;
+    return FLUID_THREAD_RETURN_VALUE;
 }
-
 /**
  * Create a new thread.
  * @param func Function to execute in new thread context
@@ -971,72 +928,39 @@ fluid_thread_high_prio(gpointer data)
 fluid_thread_t *
 new_fluid_thread(const char *name, fluid_thread_func_t func, void *data, int prio_level, int detach)
 {
-    GThread *thread;
-    fluid_thread_info_t *info = NULL;
-    GError *err = NULL;
+  fluid_thread_t *thread;
+  fluid_thread_info_t *info;
 
-    g_return_val_if_fail(func != NULL, NULL);
+  fluid_return_val_if_fail (func != NULL, NULL);
 
-#if OLD_GLIB_THREAD_API
+  thread = FLUID_NEW(fluid_thread_t);
+  if (prio_level > 0) {
+    info = FLUID_NEW (fluid_thread_info_t);
 
-    /* Make sure g_thread_init has been called.
-     * FIXME - Probably not a good idea in a shared library,
-     * but what can we do *and* remain backwards compatible? */
-    if(!g_thread_supported())
-    {
-        g_thread_init(NULL);
+    if (!info) {
+      FLUID_LOG(FLUID_ERR, "Out of memory");
+      return NULL;
     }
 
-#endif
+    info->func = func;
+    info->data = data;
+    info->prio_level = prio_level;
+    data = info;
+    func = fluid_thread_high_prio;
+  }
 
-    if(prio_level > 0)
-    {
-        info = FLUID_NEW(fluid_thread_info_t);
+  pthread_create(thread, NULL, func, data);
 
-        if(!info)
-        {
-            FLUID_LOG(FLUID_ERR, "Out of memory");
-            return NULL;
-        }
+  if (!thread) {
+    FLUID_LOG(FLUID_ERR, "Failed to create the thread");
+    return NULL;
+  }
 
-        info->func = func;
-        info->data = data;
-        info->prio_level = prio_level;
-#if NEW_GLIB_THREAD_API
-        thread = g_thread_try_new(name, fluid_thread_high_prio, info, &err);
-#else
-        thread = g_thread_create(fluid_thread_high_prio, info, detach == FALSE, &err);
-#endif
-    }
+  if (detach) {
+    pthread_detach(*thread);
+  }
 
-    else
-    {
-#if NEW_GLIB_THREAD_API
-        thread = g_thread_try_new(name, (GThreadFunc)func, data, &err);
-#else
-        thread = g_thread_create((GThreadFunc)func, data, detach == FALSE, &err);
-#endif
-    }
-
-    if(!thread)
-    {
-        FLUID_LOG(FLUID_ERR, "Failed to create the thread: %s",
-                  fluid_gerror_message(err));
-        g_clear_error(&err);
-        FLUID_FREE(info);
-        return NULL;
-    }
-
-#if NEW_GLIB_THREAD_API
-
-    if(detach)
-    {
-        g_thread_unref(thread);    // Release thread reference, if caller wants to detach
-    }
-
-#endif
-
-    return thread;
+  return thread;
 }
 
 /**
@@ -1057,7 +981,7 @@ delete_fluid_thread(fluid_thread_t *thread)
 int
 fluid_thread_join(fluid_thread_t *thread)
 {
-    g_thread_join(thread);
+    pthread_join(*thread, NULL);
 
     return FLUID_OK;
 }
@@ -1661,9 +1585,9 @@ FILE* fluid_file_open(const char* path, const char** errMsg)
     static const char ErrExist[] = "File does not exist.";
     static const char ErrRegular[] = "File is not regular, refusing to open it.";
     static const char ErrNull[] = "File does not exists or insufficient permissions to open it.";
-    
+
     FILE* handle = NULL;
-    
+#ifndef ANDROID
     if(!g_file_test(path, G_FILE_TEST_EXISTS))
     {
         if(errMsg != NULL)
@@ -1678,13 +1602,15 @@ FILE* fluid_file_open(const char* path, const char** errMsg)
             *errMsg = ErrRegular;
         }
     }
-    else if((handle = FLUID_FOPEN(path, "rb")) == NULL)
+    else
+#endif
+    if((handle = FLUID_FOPEN(path, "rb")) == NULL)
     {
         if(errMsg != NULL)
         {
             *errMsg = ErrNull;
         }
     }
-    
+
     return handle;
 }

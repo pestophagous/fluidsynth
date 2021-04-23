@@ -20,7 +20,7 @@
 
 /*
  * @file fluidsynth_priv.h
- * 
+ *
  * lightweight part of fluid_sys.h, containing forward declarations of fluidsynth's private types and private macros
  *
  * include this one file in fluidsynth's private header files
@@ -28,8 +28,6 @@
 
 #ifndef _FLUIDSYNTH_PRIV_H
 #define _FLUIDSYNTH_PRIV_H
-
-#include <glib.h>
 
 #include "config.h"
 
@@ -68,12 +66,20 @@ typedef double fluid_real_t;
      _type* _name = g_newa(_type, (_len))
 #endif
 
+#define TRUE 1
+#define FALSE 0
 
-/** Atomic types  */
-typedef int fluid_atomic_int_t;
-typedef unsigned int fluid_atomic_uint_t;
-typedef float fluid_atomic_float_t;
 
+/** Atomic types */
+typedef struct {
+    volatile int value;
+} fluid_atomic_int_t;
+typedef struct {
+    volatile unsigned value;
+} fluid_atomic_uint_t;
+typedef struct {
+    volatile float value;
+} fluid_atomic_float_t;
 
 /***************************************************************
  *
@@ -275,14 +281,15 @@ do { strncpy(_dst,_src,_n); \
 #define FLUID_LOG                    fluid_log
 #endif
 
-#if defined(DEBUG) && !defined(NDEBUG)
-#define FLUID_ASSERT(a) g_assert(a)
+#ifdef DEBUG
+#include <assert.h>
+#define FLUID_ASSERT(a) assert(a)
 #else
 #define FLUID_ASSERT(a)
 #endif
 
-#define FLUID_LIKELY G_LIKELY
-#define FLUID_UNLIKELY G_UNLIKELY
+#define FLUID_LIKELY(x)      __builtin_expect(!!(x), 1)
+#define FLUID_UNLIKELY(x)    __builtin_expect(!!(x), 0)
 
 /* Misc */
 #if defined(__INTEL_COMPILER)

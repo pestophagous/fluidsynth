@@ -26,6 +26,8 @@
 #include "fluid_sfont.h"
 #include "fluid_chan.h"
 
+#include <glib/gstdio.h>
+
 /* FIXME: LADSPA used to need a lot of parameters on a single line. This is not
  * necessary anymore, so the limits below could probably be reduced */
 #define MAX_TOKENS 100

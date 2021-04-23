@@ -32,6 +32,7 @@
 
 #include <pulse/simple.h>
 #include <pulse/error.h>
+#include <glib/gstdio.h>
 
 /** fluid_pulse_audio_driver_t
  *

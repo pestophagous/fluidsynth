@@ -48,6 +48,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/poll.h>
+#include <glib/gstdio.h>
 
 #define BUFFER_LENGTH 512
 
