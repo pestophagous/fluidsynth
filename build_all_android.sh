@@ -13,19 +13,21 @@ if [ -z "$ANDROID_NDK" ]; then
   exit 1
 fi
 
+cp android.CMakeLists.txt CMakeLists.txt
+
 # Directories, paths and filenames
 BUILD_DIR=build
 
 CMAKE_ARGS="-H. \
   -DBUILD_SHARED_LIBS=true \
   -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_CXX_FLAGS=-I${PWD}/../../oboe/build/prefab/oboe-1.5.1/prefab/modules/oboe/include \
+  -DCMAKE_CXX_FLAGS=-I${PWD}/../oboe/build/prefab/oboe-1.5.1/prefab/modules/oboe/include \
   -DANDROID_TOOLCHAIN=clang \
   -DANDROID_STL=c++_shared \
   -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake \
   -DCMAKE_INSTALL_PREFIX=."
 
-  function build_fluidsynth {
+function build_fluidsynth {
 
   ABI=$1
   MINIMUM_API_LEVEL=$2
@@ -53,3 +55,5 @@ build_fluidsynth armeabi-v7a 16
 build_fluidsynth arm64-v8a 21
 build_fluidsynth x86 16
 build_fluidsynth x86_64 21
+
+git checkout CMakeLists.txt
