@@ -16,7 +16,7 @@ fi
 cp android.CMakeLists.txt CMakeLists.txt
 
 # Directories, paths and filenames
-BUILD_DIR=build
+BUILD_DIR=build_fsynth_for_android
 
 CMAKE_ARGS="-H. \
   -DBUILD_SHARED_LIBS=true \
@@ -31,7 +31,7 @@ function build_fluidsynth {
 
   ABI=$1
   MINIMUM_API_LEVEL=$2
-  ABI_BUILD_DIR=build/${ABI}
+  ABI_BUILD_DIR=${BUILD_DIR}/${ABI}
   STAGING_DIR=staging
 
   echo "Building FluidSynth for ${ABI}"
