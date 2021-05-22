@@ -226,9 +226,9 @@ set_target_properties ( libfluidsynth
 install ( TARGETS libfluidsynth
     LIBRARY DESTINATION lib/${ANDROID_ABI}
     ARCHIVE DESTINATION lib/${ANDROID_ABI}
-    PUBLIC_HEADER DESTINATION include/fluidsynth
+    PUBLIC_HEADER DESTINATION ${CMAKE_BINARY_DIR}/include/fluidsynth
 )
-install ( FILES ${public_main_HEADER} DESTINATION include )
+install ( FILES ${public_main_HEADER} DESTINATION ${CMAKE_BINARY_DIR}/include )
 
 # ******* Auto Generated Lookup Tables ******
 
