@@ -224,8 +224,8 @@ set_target_properties ( libfluidsynth
 )
 
 install ( TARGETS libfluidsynth
-    LIBRARY DESTINATION lib/${ANDROID_ABI}
-    ARCHIVE DESTINATION lib/${ANDROID_ABI}
+    LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/lib/${ANDROID_ABI}
+    ARCHIVE DESTINATION ${CMAKE_BINARY_DIR}/lib/${ANDROID_ABI}
     PUBLIC_HEADER DESTINATION ${CMAKE_BINARY_DIR}/include/fluidsynth
 )
 install ( FILES ${public_main_HEADER} DESTINATION ${CMAKE_BINARY_DIR}/include )

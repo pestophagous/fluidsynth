@@ -13,10 +13,11 @@ if [ -z "$ANDROID_NDK" ]; then
   exit 1
 fi
 
-cp android.CMakeLists.txt CMakeLists.txt
+echo "Reading first argument. Output dir for fluidsynth Android build."
+BUILD_DIR=$1
+shift 1
 
-# Directories, paths and filenames
-BUILD_DIR=build_fsynth_for_android
+cp android.CMakeLists.txt CMakeLists.txt
 
 CMAKE_ARGS="-H. \
   -DBUILD_SHARED_LIBS=true \
